@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.py[cod]
+.adk/
+simple_agent/.env
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
