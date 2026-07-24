@@ -20,3 +20,27 @@ a2ui-surface {
   --a2ui-font-size-s: 0.95rem;
   --a2ui-choicepicker-gap: 0.72rem;
 }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #e2e8f0;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(91, 76, 240, 0.15), transparent 34rem),
+      radial-gradient(circle at 100% 25%, rgba(45, 55, 72, 0.4), transparent 30rem),
+      #0b0f19;
+  }
+
+  a2ui-surface {
+    --a2ui-color-primary: #6366f1;
+    --a2ui-color-on-primary: #ffffff;
+    --a2ui-color-surface: #1e293b;
+    --a2ui-color-on-surface: #f1f5f9;
+    --a2ui-color-border: #334155;
+    --a2ui-font-size-s: 0.95rem;
+    --a2ui-choicepicker-gap: 0.72rem;
+    --a2ui-color-input: #0f172a;
+    --a2ui-color-on-input: #f1f5f9;
+    --a2ui-textfield-color-border-focus: #6366f1;
+  }
+}
+

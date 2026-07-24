@@ -27,10 +27,11 @@ SCORE_REVIEW_MESSAGES = [
                     "component": "Column",
                     "children": [
                         "score-title",
+                        "score-options",
                         "original-question",
                         "expected-answer",
-                        "score-options",
                         "comments",
+                        "submit-btn",
                     ],
                 },
                 {
@@ -55,14 +56,11 @@ SCORE_REVIEW_MESSAGES = [
                 },
                 {
                     "id": "score-options",
-                    "component": "ChoicePicker",
+                    "component": "Slider",
                     "label": "Score",
-                    "options": [
-                        {"label": str(score), "value": str(score)}
-                        for score in range(6)
-                    ],
+                    "min": 0,
+                    "max": 5,
                     "value": {"path": "/score"},
-                    "variant": "mutuallyExclusive",
                 },
                 {
                     "id": "comments",
@@ -70,6 +68,23 @@ SCORE_REVIEW_MESSAGES = [
                     "label": "Comments",
                     "value": {"path": "/comments"},
                     "variant": "longText",
+                },
+                {
+                    "id": "submit-btn-text",
+                    "component": "Text",
+                    "text": "Submit Review",
+                },
+                {
+                    "id": "submit-btn",
+                    "component": "Button",
+                    "child": "submit-btn-text",
+                    "action": {
+                        "event": {
+                            "name": "submit",
+                            "context": {},
+                        }
+                    },
+                    "variant": "primary",
                 },
             ],
         },
@@ -79,7 +94,7 @@ SCORE_REVIEW_MESSAGES = [
         "updateDataModel": {
             "surfaceId": "score-selector",
             "path": "/score",
-            "value": [],
+            "value": 3,
         },
     },
     {

@@ -57,6 +57,88 @@ async function readSse(response: Response): Promise<JsonValue[]> {
     .map(line => JSON.parse(line.slice(5).trim()) as JsonValue);
 }
 
+function overrideChoicePickerStyles(ChoicePickerEl: any) {
+  if (!ChoicePickerEl || ChoicePickerEl.prototype.__overrideApplied) return;
+  ChoicePickerEl.prototype.__overrideApplied = true;
+  const originalFirstUpdated = ChoicePickerEl.prototype.firstUpdated;
+  ChoicePickerEl.prototype.firstUpdated = function(changedProperties: any) {
+    if (originalFirstUpdated) {
+      originalFirstUpdated.call(this, changedProperties);
+    }
+    if (this.shadowRoot && !this.shadowRoot.querySelector('style[data-custom-align]')) {
+      const style = document.createElement('style');
+      style.setAttribute('data-custom-align', '');
+      style.textContent = `
+        .options {
+          flex-direction: row !important;
+          flex-wrap: wrap !important;
+          gap: 16px !important;
+          margin-top: 6px !important;
+        }
+        .options label {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 6px !important;
+          cursor: pointer !important;
+          user-select: none !important;
+        }
+        .options input[type="radio"] {
+          margin: 0 !important;
+          cursor: pointer !important;
+        }
+      `;
+      this.shadowRoot.appendChild(style);
+    }
+  };
+}
+
+const ChoicePickerElImmediate = customElements.get('a2ui-choicepicker');
+if (ChoicePickerElImmediate) {
+  overrideChoicePickerStyles(ChoicePickerElImmediate);
+} else {
+  customElements.whenDefined('a2ui-choicepicker').then(() => {
+    overrideChoicePickerStyles(customElements.get('a2ui-choicepicker'));
+  });
+}
+
+function overrideTextFieldPlaceholders(TextFieldEl: any) {
+  if (!TextFieldEl || TextFieldEl.prototype.__overrideApplied) return;
+  TextFieldEl.prototype.__overrideApplied = true;
+  const originalFirstUpdated = TextFieldEl.prototype.firstUpdated;
+  TextFieldEl.prototype.firstUpdated = function(changedProperties: any) {
+    if (originalFirstUpdated) {
+      originalFirstUpdated.call(this, changedProperties);
+    }
+    if (this.shadowRoot) {
+      const labelEl = this.shadowRoot.querySelector('label');
+      const inputEl = this.shadowRoot.querySelector('textarea, input');
+      if (labelEl && inputEl) {
+        const labelText = labelEl.textContent?.trim();
+        let placeholderText = '';
+        if (labelText === 'Original question') {
+          placeholderText = 'Copy paste original question you asked to the agent';
+        } else if (labelText === 'Expected answer (optional)') {
+          placeholderText = 'Enter the expected answer if any';
+        } else if (labelText === 'Comments') {
+          placeholderText = 'Provide comments or reasoning for the rating';
+        }
+        if (placeholderText) {
+          inputEl.setAttribute('placeholder', placeholderText);
+        }
+      }
+    }
+  };
+}
+
+const TextFieldElImmediate = customElements.get('a2ui-basic-textfield');
+if (TextFieldElImmediate) {
+  overrideTextFieldPlaceholders(TextFieldElImmediate);
+} else {
+  customElements.whenDefined('a2ui-basic-textfield').then(() => {
+    overrideTextFieldPlaceholders(customElements.get('a2ui-basic-textfield'));
+  });
+}
+
 @customElement('score-selector-app')
 class ScoreSelectorApp extends SignalWatcher(LitElement) {
   @state() private loading = false;
@@ -94,6 +176,23 @@ class ScoreSelectorApp extends SignalWatcher(LitElement) {
     button:hover { background: #493bd4; }
     button:disabled { cursor: wait; opacity: 0.55; }
     @media (max-width: 600px) { .shell { padding: 24px 0; } .conversation { padding: 18px; } form { padding: 12px; } }
+
+    @media (prefers-color-scheme: dark) {
+      .eyebrow { color: #818cf8; }
+      .lead { color: #94a3b8; }
+      .panel { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 24px 70px rgba(0,0,0,0.4); }
+      .welcome { color: #94a3b8; }
+      .agent .bubble { color: #f1f5f9; background: #334155; border-bottom-left-radius: 6px; }
+      .user .bubble { background: #6366f1; }
+      .surface { background: #1e293b; border: 1px solid #334155; }
+      .thinking { color: #94a3b8; }
+      .error { color: #fca5a5; background: #7f1d1d; }
+      form { border-top: 1px solid #334155; background: rgba(15, 23, 42, 0.92); }
+      textarea { color: #f1f5f9; background: #0f172a; border: 1px solid #334155; }
+      textarea:focus { outline: 3px solid rgba(99,102,241,0.25); border-color: #6366f1; }
+      button { background: #6366f1; box-shadow: 0 8px 20px rgba(99,102,241,0.25); }
+      button:hover { background: #4f46e5; }
+    }
   `;
 
   private async ensureSession() {

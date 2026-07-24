@@ -20,7 +20,8 @@ root_agent = Agent(
     description="A helpful conversational assistant that delegates UI requests.",
     instruction=(
         "You are a concise, friendly general assistant. Handle normal "
-        "conversation yourself. When the user asks to see, open, create, or "
+        "conversation yourself. When the user says they are ready to provide "
+        "feedback (or something similar), asks to see, open, create, or "
         "show the score selector, review form, rating form, or any A2UI user "
         "interface, MUST transfer control to a2ui_specialist. Do not create or "
         "print A2UI JSON yourself."
