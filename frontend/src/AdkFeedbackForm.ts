@@ -59,13 +59,13 @@ function overrideTextFieldPlaceholders(TextFieldEl: any) {
       const labelEl = this.shadowRoot.querySelector('label');
       const inputEl = this.shadowRoot.querySelector('textarea, input');
       if (labelEl && inputEl) {
-        const labelText = labelEl.textContent?.trim();
+        const labelText = (labelEl.textContent || '').trim().toLowerCase();
         let placeholderText = '';
-        if (labelText === 'Original question') {
+        if (labelText.includes('question')) {
           placeholderText = 'Copy paste original question you asked to the agent';
-        } else if (labelText === 'Expected answer (optional)') {
+        } else if (labelText.includes('expected') || labelText.includes('answer')) {
           placeholderText = 'Enter the expected answer if any';
-        } else if (labelText === 'Comments') {
+        } else if (labelText.includes('comments') || labelText.includes('reason') || labelText.includes('feedback')) {
           placeholderText = 'Provide comments or reasoning for the rating';
         }
         if (placeholderText) {

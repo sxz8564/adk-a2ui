@@ -14,6 +14,13 @@ def create_feedback_agent(
     surface_id: str = "score-selector",
     title: str = "Review this answer",
     submit_btn_text: str = "Submit Review",
+    slider_label: str = "Score",
+    min_score: int = 0,
+    max_score: int = 5,
+    default_score: int = 3,
+    original_question_label: str = "Original question",
+    expected_answer_label: str = "Expected answer (optional)",
+    comments_label: str = "Comments",
 ) -> Agent:
     """Create and return a configured ADK subagent designed to emit a feedback form."""
     
@@ -51,29 +58,29 @@ def create_feedback_agent(
                     {
                         "id": "original-question",
                         "component": "TextField",
-                        "label": "Original question",
+                        "label": original_question_label,
                         "value": {"path": "/originalQuestion"},
                         "variant": "longText",
                     },
                     {
                         "id": "expected-answer",
                         "component": "TextField",
-                        "label": "Expected answer (optional)",
+                        "label": expected_answer_label,
                         "value": {"path": "/expectedAnswer"},
                         "variant": "longText",
                     },
                     {
                         "id": "score-options",
                         "component": "Slider",
-                        "label": "Score",
-                        "min": 0,
-                        "max": 5,
+                        "label": slider_label,
+                        "min": min_score,
+                        "max": max_score,
                         "value": {"path": "/score"},
                     },
                     {
                         "id": "comments",
                         "component": "TextField",
-                        "label": "Comments",
+                        "label": comments_label,
                         "value": {"path": "/comments"},
                         "variant": "longText",
                     },
@@ -102,7 +109,7 @@ def create_feedback_agent(
             "updateDataModel": {
                 "surfaceId": surface_id,
                 "path": "/score",
-                "value": 3,
+                "value": default_score,
             },
         },
         {
