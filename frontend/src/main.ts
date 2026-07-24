@@ -5,6 +5,7 @@ import {MessageProcessor} from '@a2ui/web_core/v0_9';
 import {LitElement, css, html, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import './styles.css';
+import './AdkFeedbackForm';
 
 type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean | null;
 type ChatMessage = {
@@ -58,87 +59,7 @@ async function readSse(response: Response): Promise<JsonValue[]> {
     .map(line => JSON.parse(line.slice(5).trim()) as JsonValue);
 }
 
-function overrideChoicePickerStyles(ChoicePickerEl: any) {
-  if (!ChoicePickerEl || ChoicePickerEl.prototype.__overrideApplied) return;
-  ChoicePickerEl.prototype.__overrideApplied = true;
-  const originalFirstUpdated = ChoicePickerEl.prototype.firstUpdated;
-  ChoicePickerEl.prototype.firstUpdated = function(changedProperties: any) {
-    if (originalFirstUpdated) {
-      originalFirstUpdated.call(this, changedProperties);
-    }
-    if (this.shadowRoot && !this.shadowRoot.querySelector('style[data-custom-align]')) {
-      const style = document.createElement('style');
-      style.setAttribute('data-custom-align', '');
-      style.textContent = `
-        .options {
-          flex-direction: row !important;
-          flex-wrap: wrap !important;
-          gap: 16px !important;
-          margin-top: 6px !important;
-        }
-        .options label {
-          display: inline-flex !important;
-          align-items: center !important;
-          gap: 6px !important;
-          cursor: pointer !important;
-          user-select: none !important;
-        }
-        .options input[type="radio"] {
-          margin: 0 !important;
-          cursor: pointer !important;
-        }
-      `;
-      this.shadowRoot.appendChild(style);
-    }
-  };
-}
 
-const ChoicePickerElImmediate = customElements.get('a2ui-choicepicker');
-if (ChoicePickerElImmediate) {
-  overrideChoicePickerStyles(ChoicePickerElImmediate);
-} else {
-  customElements.whenDefined('a2ui-choicepicker').then(() => {
-    overrideChoicePickerStyles(customElements.get('a2ui-choicepicker'));
-  });
-}
-
-function overrideTextFieldPlaceholders(TextFieldEl: any) {
-  if (!TextFieldEl || TextFieldEl.prototype.__overrideApplied) return;
-  TextFieldEl.prototype.__overrideApplied = true;
-  const originalFirstUpdated = TextFieldEl.prototype.firstUpdated;
-  TextFieldEl.prototype.firstUpdated = function(changedProperties: any) {
-    if (originalFirstUpdated) {
-      originalFirstUpdated.call(this, changedProperties);
-    }
-    if (this.shadowRoot) {
-      const labelEl = this.shadowRoot.querySelector('label');
-      const inputEl = this.shadowRoot.querySelector('textarea, input');
-      if (labelEl && inputEl) {
-        const labelText = labelEl.textContent?.trim();
-        let placeholderText = '';
-        if (labelText === 'Original question') {
-          placeholderText = 'Copy paste original question you asked to the agent';
-        } else if (labelText === 'Expected answer (optional)') {
-          placeholderText = 'Enter the expected answer if any';
-        } else if (labelText === 'Comments') {
-          placeholderText = 'Provide comments or reasoning for the rating';
-        }
-        if (placeholderText) {
-          inputEl.setAttribute('placeholder', placeholderText);
-        }
-      }
-    }
-  };
-}
-
-const TextFieldElImmediate = customElements.get('a2ui-basic-textfield');
-if (TextFieldElImmediate) {
-  overrideTextFieldPlaceholders(TextFieldElImmediate);
-} else {
-  customElements.whenDefined('a2ui-basic-textfield').then(() => {
-    overrideTextFieldPlaceholders(customElements.get('a2ui-basic-textfield'));
-  });
-}
 
 @customElement('score-selector-app')
 class ScoreSelectorApp extends SignalWatcher(LitElement) {
@@ -257,13 +178,6 @@ class ScoreSelectorApp extends SignalWatcher(LitElement) {
         const processor = new MessageProcessor([basicCatalog]);
         processor.processMessages(a2uiMessages as never[]);
         surfaces = Array.from(processor.model.surfacesMap.values());
-        for (const surface of surfaces) {
-          surface.onAction.subscribe((action: any) => {
-            if (action?.name === 'submit') {
-              this.handleFeedbackSubmit(surface);
-            }
-          });
-        }
       }
 
       this.messages = [...this.messages, {
@@ -281,57 +195,12 @@ class ScoreSelectorApp extends SignalWatcher(LitElement) {
     }
   }
 
-  private async handleFeedbackSubmit(surface: any) {
-    const score = surface.dataModel.get('/score');
-    const originalQuestion = surface.dataModel.get('/originalQuestion');
-    const expectedAnswer = surface.dataModel.get('/expectedAnswer');
-    const comments = surface.dataModel.get('/comments');
-
-    // Validation
-    const isScoreValid = typeof score === 'number' && score >= 0 && score <= 5;
-    const isQuestionValid = typeof originalQuestion === 'string' && originalQuestion.trim() !== '';
-    const isCommentsValid = typeof comments === 'string' && comments.trim() !== '';
-
-    if (!isScoreValid || !isQuestionValid || !isCommentsValid) {
-      this.error = 'Submission failed: "Score", "Original question", and "Comments" are mandatory fields. Please fill them out before submitting.';
-      return;
-    }
-
-    this.error = '';
-    this.loading = true;
-
-    try {
-      const payload = {
-        timestamp: new Date().toISOString(),
-        score,
-        originalQuestion: originalQuestion.trim(),
-        expectedAnswer: (expectedAnswer || '').trim(),
-        comments: comments.trim()
-      };
-
-      const response = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save feedback on the server.');
-      }
-
-      // Add confirmation message to chat
-      this.messages = [...this.messages, {
-        id: crypto.randomUUID(),
-        role: 'agent',
-        text: `✅ Feedback submitted successfully!\n\n• Score: ${score}/5\n• Original Question: "${payload.originalQuestion}"\n• Comments: "${payload.comments}"\n\nYour response has been saved to the database.`
-      }];
-    } catch (err) {
-      this.error = err instanceof Error ? err.message : String(err);
-    } finally {
-      this.loading = false;
-      await this.updateComplete;
-      this.renderRoot.querySelector('.conversation')?.scrollTo({top: 999999, behavior: 'smooth'});
-    }
+  private handleFeedbackSubmitted(payload: any) {
+    this.messages = [...this.messages, {
+      id: crypto.randomUUID(),
+      role: 'agent',
+      text: `✅ Feedback submitted successfully!\n\n• Score: ${payload.score}/5\n• Original Question: "${payload.originalQuestion}"\n• Comments: "${payload.comments}"\n\nYour response has been saved to the database.`
+    }];
   }
 
   private handleKeydown(event: KeyboardEvent) {
@@ -357,7 +226,12 @@ class ScoreSelectorApp extends SignalWatcher(LitElement) {
                   <article class="message ${message.role}">
                     ${message.text ? html`<div class="bubble">${message.text}</div>` : nothing}
                     ${message.surfaces?.map(surface => html`
-                      <div class="surface"><a2ui-surface .surface=${surface}></a2ui-surface></div>
+                      <div class="surface">
+                        ${(surface as any).id === 'score-selector'
+                          ? html`<adk-feedback-form .surface=${surface} @feedback-submitted=${(e: CustomEvent) => this.handleFeedbackSubmitted(e.detail)} @feedback-error=${(e: CustomEvent) => this.error = e.detail}></adk-feedback-form>`
+                          : html`<a2ui-surface .surface=${surface}></a2ui-surface>`
+                        }
+                      </div>
                     `)}
                   </article>
                 `)}
