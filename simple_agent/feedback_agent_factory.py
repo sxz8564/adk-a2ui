@@ -7,6 +7,30 @@ from a2ui.schema.constants import VERSION_0_9
 from a2ui.schema.manager import A2uiSchemaManager
 from google.adk.agents.llm_agent import Agent
 
+DEFAULT_FIELDS = [
+    {
+        "id": "original-question",
+        "label": "Original question",
+        "path": "/originalQuestion",
+        "mandatory": True,
+        "placeholder": "Copy paste original question you asked to the agent",
+    },
+    {
+        "id": "expected-answer",
+        "label": "Expected answer (optional)",
+        "path": "/expectedAnswer",
+        "mandatory": False,
+        "placeholder": "Enter the expected answer if any",
+    },
+    {
+        "id": "comments",
+        "label": "Comments",
+        "path": "/comments",
+        "mandatory": True,
+        "placeholder": "Provide comments or reasoning for the rating",
+    }
+]
+
 def create_feedback_agent(
     name: str = "a2ui_specialist",
     description: str = "Creates and emits an interactive A2UI review form.",
@@ -18,12 +42,25 @@ def create_feedback_agent(
     min_score: int = 0,
     max_score: int = 5,
     default_score: int = 3,
-    original_question_label: str = "Original question",
-    expected_answer_label: str = "Expected answer (optional)",
-    comments_label: str = "Comments",
+    fields: list[dict] = None,
 ) -> Agent:
-    """Create and return a configured ADK subagent designed to emit a feedback form."""
+    """Create and return a configured ADK subagent designed to emit a feedback form.
     
+    The 'fields' parameter accepts a list of text field dictionaries:
+    [
+        {
+            "id": "field-id",
+            "label": "Field Label Text",
+            "path": "/dataPath",
+            "mandatory": True/False,
+            "placeholder": "Placeholder Text (optional)",
+            "variant": "longText"/"shortText" (default: "longText")
+        }
+    ]
+    """
+    if fields is None:
+        fields = DEFAULT_FIELDS
+        
     score_review_messages = [
         {
             "version": "v0.9",
@@ -43,9 +80,7 @@ def create_feedback_agent(
                         "children": [
                             "score-title",
                             "score-options",
-                            "original-question",
-                            "expected-answer",
-                            "comments",
+                        ] + [f["id"] for f in fields] + [
                             "submit-btn",
                         ],
                     },
@@ -56,33 +91,12 @@ def create_feedback_agent(
                         "variant": "h2",
                     },
                     {
-                        "id": "original-question",
-                        "component": "TextField",
-                        "label": original_question_label,
-                        "value": {"path": "/originalQuestion"},
-                        "variant": "longText",
-                    },
-                    {
-                        "id": "expected-answer",
-                        "component": "TextField",
-                        "label": expected_answer_label,
-                        "value": {"path": "/expectedAnswer"},
-                        "variant": "longText",
-                    },
-                    {
                         "id": "score-options",
                         "component": "Slider",
                         "label": slider_label,
                         "min": min_score,
                         "max": max_score,
                         "value": {"path": "/score"},
-                    },
-                    {
-                        "id": "comments",
-                        "component": "TextField",
-                        "label": comments_label,
-                        "value": {"path": "/comments"},
-                        "variant": "longText",
                     },
                     {
                         "id": "submit-btn-text",
@@ -101,6 +115,15 @@ def create_feedback_agent(
                         },
                         "variant": "primary",
                     },
+                ] + [
+                    {
+                        "id": f["id"],
+                        "component": "TextField",
+                        "label": f["label"],
+                        "value": {"path": f["path"]},
+                        "variant": f.get("variant", "longText"),
+                    }
+                    for f in fields
                 ],
             },
         },
@@ -116,27 +139,37 @@ def create_feedback_agent(
             "version": "v0.9",
             "updateDataModel": {
                 "surfaceId": surface_id,
-                "path": "/originalQuestion",
-                "value": "",
+                "path": "/mandatoryFields",
+                "value": [f["path"] for f in fields if f.get("mandatory", False)],
             },
         },
         {
             "version": "v0.9",
             "updateDataModel": {
                 "surfaceId": surface_id,
-                "path": "/expectedAnswer",
-                "value": "",
+                "path": "/fieldPaths",
+                "value": [f["path"] for f in fields],
             },
         },
         {
             "version": "v0.9",
             "updateDataModel": {
                 "surfaceId": surface_id,
-                "path": "/comments",
-                "value": "",
+                "path": "/placeholders",
+                "value": {f["label"].lower(): f.get("placeholder", "") for f in fields},
             },
         },
     ]
+
+    for f in fields:
+        score_review_messages.append({
+            "version": "v0.9",
+            "updateDataModel": {
+                "surfaceId": surface_id,
+                "path": f["path"],
+                "value": "",
+            }
+        })
 
     schema_manager = A2uiSchemaManager(
         version=VERSION_0_9,

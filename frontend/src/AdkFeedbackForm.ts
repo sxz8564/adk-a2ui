@@ -59,15 +59,29 @@ function overrideTextFieldPlaceholders(TextFieldEl: any) {
       const labelEl = this.shadowRoot.querySelector('label');
       const inputEl = this.shadowRoot.querySelector('textarea, input');
       if (labelEl && inputEl) {
-        const labelText = (labelEl.textContent || '').trim().toLowerCase();
-        let placeholderText = '';
-        if (labelText.includes('question')) {
-          placeholderText = 'Copy paste original question you asked to the agent';
-        } else if (labelText.includes('expected') || labelText.includes('answer')) {
-          placeholderText = 'Enter the expected answer if any';
-        } else if (labelText.includes('comments') || labelText.includes('reason') || labelText.includes('feedback')) {
-          placeholderText = 'Provide comments or reasoning for the rating';
+        const labelText = (labelEl.textContent || '').trim();
+        const lowerLabel = labelText.toLowerCase();
+        
+        // Ascend the shadow roots to locate the parent adk-feedback-form element
+        let host = this.getRootNode()?.host;
+        while (host && host.tagName !== 'ADK-FEEDBACK-FORM') {
+          host = host.getRootNode()?.host;
         }
+        
+        const placeholdersMap = host?.surface?.dataModel?.get('/placeholders') || {};
+        let placeholderText = placeholdersMap[lowerLabel];
+        
+        if (!placeholderText) {
+          // Fallback to case-insensitive smart default matching
+          if (lowerLabel.includes('question')) {
+            placeholderText = 'Copy paste original question you asked to the agent';
+          } else if (lowerLabel.includes('expected') || lowerLabel.includes('answer')) {
+            placeholderText = 'Enter the expected answer if any';
+          } else if (lowerLabel.includes('comments') || lowerLabel.includes('reason') || lowerLabel.includes('feedback')) {
+            placeholderText = 'Provide comments or reasoning for the rating';
+          }
+        }
+        
         if (placeholderText) {
           inputEl.setAttribute('placeholder', placeholderText);
         }
@@ -135,18 +149,44 @@ export class AdkFeedbackForm extends LitElement {
     if (!this.surface) return;
 
     const score = this.surface.dataModel.get('/score');
-    const originalQuestion = this.surface.dataModel.get('/originalQuestion');
-    const expectedAnswer = this.surface.dataModel.get('/expectedAnswer');
-    const comments = this.surface.dataModel.get('/comments');
+    const isScoreValid = typeof score === 'number';
 
-    // Validation
-    const isScoreValid = typeof score === 'number' && score >= 0 && score <= 5;
-    const isQuestionValid = typeof originalQuestion === 'string' && originalQuestion.trim() !== '';
-    const isCommentsValid = typeof comments === 'string' && comments.trim() !== '';
+    const mandatoryFields = this.surface.dataModel.get('/mandatoryFields') || [];
+    const missingLabels: string[] = [];
 
-    if (!isScoreValid || !isQuestionValid || !isCommentsValid) {
+    // Query text fields in the DOM to match error feedback with their labels
+    const textfields = this.shadowRoot
+      ?.querySelector('a2ui-surface')
+      ?.shadowRoot?.querySelectorAll('a2ui-basic-textfield');
+
+    if (textfields) {
+      for (const tf of Array.from(textfields) as any[]) {
+        const path = tf.props?.value?.path;
+        if (mandatoryFields.includes(path)) {
+          const val = this.surface.dataModel.get(path);
+          if (typeof val !== 'string' || val.trim() === '') {
+            missingLabels.push(tf.props?.label || 'Required field');
+          }
+        }
+      }
+    } else {
+      // Fallback if elements are not found in the DOM yet
+      for (const path of mandatoryFields) {
+        const val = this.surface.dataModel.get(path);
+        if (typeof val !== 'string' || val.trim() === '') {
+          // clean path name (e.g. "/comments" -> "comments")
+          missingLabels.push(path.startsWith('/') ? path.slice(1) : path);
+        }
+      }
+    }
+
+    if (!isScoreValid || missingLabels.length > 0) {
+      const errMsg = missingLabels.length > 0
+        ? `Submission failed: "${missingLabels.join('", "')}" is mandatory. Please fill it out.`
+        : 'Submission failed: Score rating is invalid.';
+      
       this.dispatchEvent(new CustomEvent('feedback-error', {
-        detail: 'Submission failed: "Score", "Original question", and "Comments" are mandatory fields. Please fill them out before submitting.',
+        detail: errMsg,
         bubbles: true,
         composed: true
       }));
@@ -161,13 +201,18 @@ export class AdkFeedbackForm extends LitElement {
     }));
 
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         timestamp: new Date().toISOString(),
         score,
-        originalQuestion: originalQuestion.trim(),
-        expectedAnswer: (expectedAnswer || '').trim(),
-        comments: comments.trim()
       };
+
+      // Dynamically extract all configured field paths from the dataModel
+      const fieldPaths = this.surface.dataModel.get('/fieldPaths') || [];
+      for (const path of fieldPaths) {
+        const key = path.startsWith('/') ? path.slice(1) : path;
+        const val = this.surface.dataModel.get(path);
+        payload[key] = typeof val === 'string' ? val.trim() : val;
+      }
 
       const response = await fetch(this.submitUrl, {
         method: 'POST',
