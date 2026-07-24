@@ -5,7 +5,7 @@ Kit (ADK). The `simple_agent` directory is the discoverable agent package.
 
 ## Demo
 
-![Agent conversation with an inline A2UI review form](docs/agent-conversation.png)
+![Agent conversation with an inline A2UI review form](docs/agent-conversation.png?v=2)
 
 ## Set up on Windows PowerShell
 
