@@ -1,5 +1,6 @@
 import {SignalWatcher} from '@lit-labs/signals';
-import {basicCatalog} from '@a2ui/lit/v0_9';
+import {basicCatalog, Context} from '@a2ui/lit/v0_9';
+import {ContextProvider} from '@lit/context';
 import {MessageProcessor} from '@a2ui/web_core/v0_9';
 import {LitElement, css, html, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
@@ -141,6 +142,25 @@ if (TextFieldElImmediate) {
 
 @customElement('score-selector-app')
 class ScoreSelectorApp extends SignalWatcher(LitElement) {
+  private markdownProvider = new ContextProvider(this, {
+    context: Context.markdown,
+    initialValue: async (text: string) => {
+      let htmlText = text;
+      // Headings
+      if (htmlText.startsWith('##### ')) htmlText = `<h5>${htmlText.slice(6)}</h5>`;
+      else if (htmlText.startsWith('#### ')) htmlText = `<h4>${htmlText.slice(5)}</h4>`;
+      else if (htmlText.startsWith('### ')) htmlText = `<h3>${htmlText.slice(4)}</h3>`;
+      else if (htmlText.startsWith('## ')) htmlText = `<h2>${htmlText.slice(3)}</h2>`;
+      else if (htmlText.startsWith('# ')) htmlText = `<h1>${htmlText.slice(2)}</h1>`;
+      else htmlText = `<p>${htmlText}</p>`;
+      
+      // Inline formatting like bold/italics
+      htmlText = htmlText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      htmlText = htmlText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      return htmlText;
+    }
+  });
+
   @state() private loading = false;
   @state() private error = '';
   @state() private draft = '';
