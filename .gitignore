@@ -6,3 +6,4 @@ simple_agent/.env
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+feedback/
