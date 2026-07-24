@@ -257,6 +257,13 @@ class ScoreSelectorApp extends SignalWatcher(LitElement) {
         const processor = new MessageProcessor([basicCatalog]);
         processor.processMessages(a2uiMessages as never[]);
         surfaces = Array.from(processor.model.surfacesMap.values());
+        for (const surface of surfaces) {
+          surface.onAction.subscribe((action: any) => {
+            if (action?.name === 'submit') {
+              this.handleFeedbackSubmit(surface);
+            }
+          });
+        }
       }
 
       this.messages = [...this.messages, {
@@ -267,6 +274,59 @@ class ScoreSelectorApp extends SignalWatcher(LitElement) {
       }];
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
+    } finally {
+      this.loading = false;
+      await this.updateComplete;
+      this.renderRoot.querySelector('.conversation')?.scrollTo({top: 999999, behavior: 'smooth'});
+    }
+  }
+
+  private async handleFeedbackSubmit(surface: any) {
+    const score = surface.dataModel.get('/score');
+    const originalQuestion = surface.dataModel.get('/originalQuestion');
+    const expectedAnswer = surface.dataModel.get('/expectedAnswer');
+    const comments = surface.dataModel.get('/comments');
+
+    // Validation
+    const isScoreValid = typeof score === 'number' && score >= 0 && score <= 5;
+    const isQuestionValid = typeof originalQuestion === 'string' && originalQuestion.trim() !== '';
+    const isCommentsValid = typeof comments === 'string' && comments.trim() !== '';
+
+    if (!isScoreValid || !isQuestionValid || !isCommentsValid) {
+      this.error = 'Submission failed: "Score", "Original question", and "Comments" are mandatory fields. Please fill them out before submitting.';
+      return;
+    }
+
+    this.error = '';
+    this.loading = true;
+
+    try {
+      const payload = {
+        timestamp: new Date().toISOString(),
+        score,
+        originalQuestion: originalQuestion.trim(),
+        expectedAnswer: (expectedAnswer || '').trim(),
+        comments: comments.trim()
+      };
+
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save feedback on the server.');
+      }
+
+      // Add confirmation message to chat
+      this.messages = [...this.messages, {
+        id: crypto.randomUUID(),
+        role: 'agent',
+        text: `✅ Feedback submitted successfully!\n\n• Score: ${score}/5\n• Original Question: "${payload.originalQuestion}"\n• Comments: "${payload.comments}"\n\nYour response has been saved to the database.`
+      }];
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : String(err);
     } finally {
       this.loading = false;
       await this.updateComplete;
