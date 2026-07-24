@@ -77,14 +77,33 @@ The backend sub-agent is generated using the factory function `create_feedback_a
 
 To reuse it:
 1. Copy [feedback_agent_factory.py](file:///c:/Users/zhu_s/projects/adk-a2ui/simple_agent/feedback_agent_factory.py) into your agent package.
-2. Instantiate and attach the agent to your root agent:
+2. Instantiate and attach the agent to your root agent (you can customize the list of text fields dynamically):
    ```python
    from simple_agent.feedback_agent_factory import create_feedback_agent
 
    feedback_agent = create_feedback_agent(
        name="feedback_specialist",
        title="Rate the Assistant's Response",
-       submit_btn_text="Submit My Review"
+       submit_btn_text="Submit My Review",
+       min_score=1,
+       max_score=10,
+       default_score=5,
+       fields=[
+           {
+               "id": "user-query",
+               "label": "Original Query",
+               "path": "/originalQuery",
+               "mandatory": True,
+               "placeholder": "What was the original question?",
+           },
+           {
+               "id": "comments",
+               "label": "Improvement Suggestions",
+               "path": "/comments",
+               "mandatory": True,
+               "placeholder": "How can we improve this answer?",
+           }
+       ]
    )
    
    root_agent = Agent(
