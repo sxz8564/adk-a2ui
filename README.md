@@ -67,3 +67,68 @@ specialist emits A2UI v0.9, and the Lit renderer displays the question,
 optional expected answer, mutually exclusive 0–5 score, and comments fields.
 
 ADK Web is a development and debugging interface, not a production server.
+
+## Modular Assets & Reuse Guide
+
+This repository packages the feedback form into highly modular backend and frontend assets that can be easily plugged into future ADK projects.
+
+### 1. Reusable Sub-Agent (Backend Factory)
+The backend sub-agent is generated using the factory function `create_feedback_agent` in [feedback_agent_factory.py](file:///c:/Users/zhu_s/projects/adk-a2ui/simple_agent/feedback_agent_factory.py).
+
+To reuse it:
+1. Copy [feedback_agent_factory.py](file:///c:/Users/zhu_s/projects/adk-a2ui/simple_agent/feedback_agent_factory.py) into your agent package.
+2. Instantiate and attach the agent to your root agent:
+   ```python
+   from simple_agent.feedback_agent_factory import create_feedback_agent
+
+   feedback_agent = create_feedback_agent(
+       name="feedback_specialist",
+       title="Rate the Assistant's Response",
+       submit_btn_text="Submit My Review"
+   )
+   
+   root_agent = Agent(
+       ...,
+       sub_agents=[feedback_agent]
+   )
+   ```
+
+### 2. Standalone Storage API (FastAPI Router)
+The backend storage route is defined in [feedback_router.py](file:///c:/Users/zhu_s/projects/adk-a2ui/simple_agent/feedback_router.py).
+
+To reuse it in a production FastAPI backend:
+1. Copy [feedback_router.py](file:///c:/Users/zhu_s/projects/adk-a2ui/simple_agent/feedback_router.py) to your backend source code.
+2. Import and mount it onto your FastAPI application:
+   ```python
+   from fastapi import FastAPI
+   from simple_agent.feedback_router import router as feedback_router
+
+   app = FastAPI()
+   app.include_router(feedback_router)
+   ```
+
+### 3. Reusable Web Component (Frontend Element)
+The frontend UI renders using the custom `<adk-feedback-form>` Lit element defined in [AdkFeedbackForm.ts](file:///c:/Users/zhu_s/projects/adk-a2ui/frontend/src/AdkFeedbackForm.ts). It encapsulates choice-picker alignment styles, gray input placeholders, action listeners, and submit validations.
+
+To reuse it:
+1. Copy [AdkFeedbackForm.ts](file:///c:/Users/zhu_s/projects/adk-a2ui/frontend/src/AdkFeedbackForm.ts) into your frontend source directory.
+2. Import it in your entry application file:
+   ```typescript
+   import './AdkFeedbackForm';
+   ```
+3. Render the feedback form in your template when the surface matches the `score-selector` surface ID:
+   ```typescript
+   html`
+     ${surface.id === 'score-selector'
+       ? html`
+           <adk-feedback-form
+             .surface=${surface}
+             submitUrl="/api/feedback"
+             @feedback-submitted=${(e: CustomEvent) => handleSuccess(e.detail)}
+             @feedback-error=${(e: CustomEvent) => handleError(e.detail)}>
+           </adk-feedback-form>
+         `
+       : html`<a2ui-surface .surface=${surface}></a2ui-surface>`
+     }
+   `
+   ```
